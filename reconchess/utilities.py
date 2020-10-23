@@ -76,30 +76,30 @@ def without_opponent_pieces(board: chess.Board) -> chess.Board:
     return board.transform(lambda bb: bb & mine)
 
 
-def moves_without_opponent_pieces(board: chess.Board, has_opponent_pieces=True) -> List[chess.Move]:
+def moves_without_opponent_pieces(board: chess.Board) -> List[chess.Move]:
     """Generates moves on `board` with the opponent's pieces removed."""
-    no_opponents_board = without_opponent_pieces(board) if has_opponent_pieces else board
-    return list(no_opponents_board.generate_pseudo_legal_moves())
+    return list(without_opponent_pieces(board).generate_pseudo_legal_moves())
 
 
-def pawn_capture_moves_on(board: chess.Board, has_opponent_pieces=True) -> List[chess.Move]:
+def pawn_capture_moves_on(board: chess.Board, include_missing_promotions: bool = True) -> List[chess.Move]:
     """Generates all pawn captures on `board`, even if there is no piece to capture. All promotion moves are included."""
     pawn_capture_moves = []
-
-    no_opponents_board = without_opponent_pieces(board) if has_opponent_pieces else board
 
     for pawn_square in board.pieces(chess.PAWN, board.turn):
         for attacked_square in board.attacks(pawn_square):
             # skip this square if one of our own pieces are on the square
-            if no_opponents_board.piece_at(attacked_square):
+            attacked_piece = board.piece_at(attacked_square)
+            if attacked_piece and attacked_piece.color == board.turn:
                 continue
-
-            pawn_capture_moves.append(chess.Move(pawn_square, attacked_square))
 
             # add in promotion moves
             if attacked_square in BACK_RANKS:
                 for piece_type in chess.PIECE_TYPES[1:-1]:
                     pawn_capture_moves.append(chess.Move(pawn_square, attacked_square, promotion=piece_type))
+                if include_missing_promotions:
+                    pawn_capture_moves.append(chess.Move(pawn_square, attacked_square))
+            else:
+                pawn_capture_moves.append(chess.Move(pawn_square, attacked_square))
 
     return pawn_capture_moves
 
@@ -126,8 +126,7 @@ def move_actions(board: chess.Board) -> List[chess.Move]:
     """
     :return: List of moves that are possible with only knowledge of your pieces
     """
-    board = without_opponent_pieces(board)
-    return moves_without_opponent_pieces(board, False) + pawn_capture_moves_on(board, False)
+    return moves_without_opponent_pieces(board) + pawn_capture_moves_on(board)
 
 
 class ChessJSONEncoder(json.JSONEncoder):
